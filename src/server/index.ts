@@ -13,6 +13,7 @@ import {
   queryLeagueEntriesAcrossPlatforms 
 } from '../utils/parallel-queries.js';
 import { handleApiError } from '../api/error-handler.js';
+import { CacheService } from '../services/cache.js';
 import type { LeagueEntryDto } from '../types/league.js';
 
 dotenv.config();
@@ -90,6 +91,21 @@ app.get('/api/account', async (req, res) => {
       });
     }
 
+    // Check cache first
+    const cacheKey = `${riotId}:${region}`;
+    const cachedData = CacheService.getCachedAccount(riotId, region as string);
+    
+    if (cachedData) {
+      console.log('✅ Cache HIT for account:', cacheKey);
+      return res.json({
+        success: true,
+        data: cachedData,
+        cached: true
+      });
+    }
+
+    console.log('❌ Cache MISS for account:', cacheKey);
+
     //Get PUUID
     const account = await riotClient.getAccountByRiotId(gameName, tagLine, region as string);
     console.log('📥 Account response:', JSON.stringify(account, null, 2));
@@ -124,53 +140,150 @@ app.get('/api/account', async (req, res) => {
       console.log('⚠️ League-V4 API not available on any platform:', (error as Error).message);
     }
 
+    const responseData = {
+      puuid: account.puuid,
+      gameName: account.gameName,
+      tagLine: account.tagLine,
+
+      summonerInfo: {
+        id: summonerInfo.id || summonerInfo.puuid, // Use puuid as fallback for id
+        accountId: summonerInfo.accountId || summonerInfo.puuid, // Use puuid as fallback
+        puuid: summonerInfo.puuid,
+        name: summonerInfo.name || account.gameName, // Use account gameName as fallback
+        profileIconId: summonerInfo.profileIconId,
+        summonerLevel: summonerInfo.summonerLevel,
+        revisionDate: summonerInfo.revisionDate
+      },
+      
+      // Ranked stats
+      rankedStats: {
+        soloDuo: soloDuo ? {
+          tier: soloDuo.tier,
+          rank: soloDuo.rank,
+          leaguePoints: soloDuo.leaguePoints,
+          wins: soloDuo.wins,
+          losses: soloDuo.losses,
+          winRate: Math.round((soloDuo.wins / (soloDuo.wins + soloDuo.losses)) * 100)
+        } : null,
+        flex: flex ? {
+          tier: flex.tier,
+          rank: flex.rank,
+          leaguePoints: flex.leaguePoints,
+          wins: flex.wins,
+          losses: flex.losses,
+          winRate: Math.round((flex.wins / (flex.wins + flex.losses)) * 100)
+        } : null
+      },
+      
+      // Platform info
+      platform: {
+        summoner: summonerResult.platform,
+        league: leagueResult ? leagueResult.platform : 'none'
+      }
+    };
+
+    // Cache the response
+    CacheService.cacheAccount(riotId, region as string, responseData);
+    console.log('💾 Cached account data for:', cacheKey);
+
     return res.json({
       success: true,
-      data: {
-        puuid: account.puuid,
-        gameName: account.gameName,
-        tagLine: account.tagLine,
-
-        summonerInfo: {
-          id: summonerInfo.id || summonerInfo.puuid, // Use puuid as fallback for id
-          accountId: summonerInfo.accountId || summonerInfo.puuid, // Use puuid as fallback
-          puuid: summonerInfo.puuid,
-          name: summonerInfo.name || account.gameName, // Use account gameName as fallback
-          profileIconId: summonerInfo.profileIconId,
-          summonerLevel: summonerInfo.summonerLevel,
-          revisionDate: summonerInfo.revisionDate
-        },
-        
-        // Ranked stats
-        rankedStats: {
-          soloDuo: soloDuo ? {
-            tier: soloDuo.tier,
-            rank: soloDuo.rank,
-            leaguePoints: soloDuo.leaguePoints,
-            wins: soloDuo.wins,
-            losses: soloDuo.losses,
-            winRate: Math.round((soloDuo.wins / (soloDuo.wins + soloDuo.losses)) * 100)
-          } : null,
-          flex: flex ? {
-            tier: flex.tier,
-            rank: flex.rank,
-            leaguePoints: flex.leaguePoints,
-            wins: flex.wins,
-            losses: flex.losses,
-            winRate: Math.round((flex.wins / (flex.wins + flex.losses)) * 100)
-          } : null
-        },
-        
-        // Platform info
-        platform: {
-          summoner: summonerResult.platform,
-          league: leagueResult ? leagueResult.platform : 'none'
-        }
-      }
+      data: responseData,
+      cached: false
     });
 
   } catch (error) {
     return handleApiError(error, res);
+  }
+});
+
+/**
+ * GET /api/icon/:iconId
+ * Get profile icon from Data Dragon with caching
+ */
+app.get('/api/icon/:iconId', async (req, res) => {
+  try {
+    const { iconId } = req.params;
+    
+    if (!iconId || isNaN(Number(iconId))) {
+      return res.status(400).json({
+        error: 'Invalid icon ID',
+        message: 'Icon ID must be a number'
+      });
+    }
+
+    // Check cache first
+    const cachedIconData = CacheService.getCachedIcon(Number(iconId));
+    
+    if (cachedIconData) {
+      console.log('✅ Cache HIT for icon:', iconId);
+      res.set({
+        'Content-Type': 'image/png',
+        'Cache-Control': 'public, max-age=86400',
+        'Access-Control-Allow-Origin': '*'
+      });
+      res.send(cachedIconData);
+      return;
+    }
+
+    console.log('❌ Cache MISS for icon:', iconId);
+
+    // Get latest Data Dragon version
+    let dataDragonVersion = '14.18.1';
+    try {
+      const versionResponse = await fetch('https://ddragon.leagueoflegends.com/api/versions.json');
+      const versions = await versionResponse.json() as string[];
+      dataDragonVersion = versions[0] || '14.18.1';
+    } catch (error) {
+      console.log('⚠️ Failed to fetch Data Dragon version, using fallback:', dataDragonVersion);
+    }
+
+    // Try multiple versions for better reliability
+    const versions = [dataDragonVersion, '15.18.1', '14.18.1', '14.17.1', '14.16.1'];
+    
+    for (const version of versions) {
+      try {
+        const iconUrl = `https://ddragon.leagueoflegends.com/cdn/${version}/img/profileicon/${iconId}.png`;
+        const iconResponse = await fetch(iconUrl);
+        
+        if (iconResponse.ok) {
+          // Get the image data as buffer
+          const imageBuffer = await iconResponse.arrayBuffer();
+          const imageData = Buffer.from(imageBuffer);
+          
+          // Cache the image data
+          CacheService.cacheIcon(Number(iconId), imageData);
+          console.log('💾 Cached icon data for:', iconId);
+          
+          // Set appropriate headers for caching
+          res.set({
+            'Content-Type': 'image/png',
+            'Cache-Control': 'public, max-age=86400', // Cache for 24 hours
+            'Access-Control-Allow-Origin': '*'
+          });
+          
+          // Send the image data
+          res.send(imageData);
+          return;
+        }
+      } catch (error) {
+        console.log(`⚠️ Failed to fetch icon with version ${version}:`, (error as Error).message);
+        continue;
+      }
+    }
+
+    // If all versions fail, return 404
+    return res.status(404).json({
+      error: 'Icon not found',
+      message: `Profile icon ${iconId} not found in any Data Dragon version`
+    });
+
+  } catch (error) {
+    console.error('Icon fetch error:', error);
+    return res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to fetch profile icon'
+    });
   }
 });
 
@@ -203,6 +316,27 @@ app.get('/api/health', (req, res) => {
 });
 
 /**
+ * GET /api/cache/stats (cache statistics endpoint)
+ */
+app.get('/api/cache/stats', (req, res) => {
+  const stats = CacheService.getStats();
+  const keys = CacheService.getKeys();
+  
+  res.json({
+    cache: {
+      keys: stats.keys,
+      hits: stats.hits,
+      misses: stats.misses,
+      hitRate: stats.hits + stats.misses > 0 ? 
+        ((stats.hits / (stats.hits + stats.misses)) * 100).toFixed(2) + '%' : '0%',
+      keyCount: keys.length,
+      sampleKeys: keys.slice(0, 10) // Show first 10 keys as sample
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+/**
  * GET /
  * API documentation
  */
@@ -214,6 +348,8 @@ app.get('/', (req, res) => {
     endpoints: {
       'GET /api/health': 'Health check',
       'GET /api/account?riotId=gameName%23tagLine': 'Get account by Riot ID',
+      'GET /api/icon/:iconId': 'Get profile icon from Data Dragon',
+      'GET /api/cache/stats': 'Get cache statistics',
       'GET /api/debug': 'Debug endpoint with instructions'
     },
     examples: {

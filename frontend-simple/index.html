@@ -284,7 +284,6 @@
         class PlayerLookupApp {
             constructor() {
                 this.elements = this.initializeElements();
-                this.dataDragonVersion = '14.18.1';
                 this.init();
             }
 
@@ -304,7 +303,6 @@
 
             init() {
                 this.setupEventListeners();
-                this.getDataDragonVersion();
             }
 
             setupEventListeners() {
@@ -316,17 +314,6 @@
                 this.elements.riotIdInput.addEventListener('input', () => {
                     this.clearError();
                 });
-            }
-
-            async getDataDragonVersion() {
-                try {
-                    const response = await fetch('https://ddragon.leagueoflegends.com/api/versions.json');
-                    const versions = await response.json();
-                    this.dataDragonVersion = versions[0];
-                    console.log('✅ Using Data Dragon version:', this.dataDragonVersion);
-                } catch (error) {
-                    console.log('⚠️ Failed to fetch Data Dragon version, using fallback:', this.dataDragonVersion);
-                }
             }
 
             async handleSearch() {
@@ -497,33 +484,23 @@
                 loading.style.display = 'flex';
                 img.style.display = 'none';
                 
-                // Try multiple versions for better reliability
-                const versions = [this.dataDragonVersion, '15.18.1', '14.18.1', '14.17.1', '14.16.1'];
-                this.tryLoadIcon(img, loading, idText, profileIconId, versions, 0);
-            }
-
-            tryLoadIcon(img, loading, idText, profileIconId, versions, retryCount) {
-                const versionToTry = versions[retryCount] || versions[versions.length - 1];
-                const iconUrl = `https://ddragon.leagueoflegends.com/cdn/${versionToTry}/img/profileicon/${profileIconId}.png`;
-                
+                // Use backend proxy for better reliability and caching
+                const iconUrl = `/api/icon/${profileIconId}`;
+                console.log('🖼️ Loading profile icon from:', iconUrl);
                 img.src = iconUrl;
                 
                 img.onload = () => {
+                    console.log('✅ Profile icon loaded successfully from:', iconUrl);
                     loading.style.display = 'none';
                     img.style.display = 'block';
                     idText.textContent = `#${profileIconId}`;
                 };
                 
-                img.onerror = () => {
-                    if (retryCount < versions.length - 1) {
-                        setTimeout(() => {
-                            this.tryLoadIcon(img, loading, idText, profileIconId, versions, retryCount + 1);
-                        }, 500);
-                    } else {
-                        loading.style.display = 'none';
-                        img.style.display = 'none';
-                        idText.textContent = `#${profileIconId}`;
-                    }
+                img.onerror = (error) => {
+                    console.log('❌ Profile icon failed to load from:', iconUrl, error);
+                    loading.style.display = 'none';
+                    img.style.display = 'none';
+                    idText.textContent = `#${profileIconId}`;
                 };
             }
         }

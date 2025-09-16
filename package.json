@@ -33,9 +33,11 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
+    "@types/node-cache": "^4.2.5",
     "axios": "^1.12.1",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "node-cache": "^5.1.2"
   }
 }

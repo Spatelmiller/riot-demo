@@ -183,6 +183,14 @@ npm run frontend     # Start frontend server
 # No build process needed - just edit HTML/CSS/JS files
 ```
 
+### E2E Test Flow
+```bash
+npm run dev:all
+# Navigate to localhost:5173
+# Mark region and search player in searchbar Ex: Samir#2468
+```
+
+
 ### Project Structure
 ```
 riot-demo/
@@ -228,7 +236,7 @@ riot-demo/
 - **Optimized UI**: Smooth loading states and transitions
 - **No Build Process**: Instant development and deployment
 
-## 📱 Usage
+## 📱 Recommended Usage
 
 1. **Start the servers** using `npm run dev:all`
 2. **Open** http://localhost:5173 in your browser

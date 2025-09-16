@@ -28,8 +28,38 @@ const mimeTypes = {
 
 const server = http.createServer((req, res) => {
   let filePath = '.' + req.url;
-  if (filePath === './') {
+    if (filePath === './') {
     filePath = './index.html';
+  }
+
+  // Handle API proxy to backend
+  if (req.url.startsWith('/api/')) {
+    // Proxy API requests to backend server
+    const backendUrl = `http://localhost:3000${req.url}`;
+    
+    const proxyReq = http.request(backendUrl, {
+      method: req.method,
+      headers: req.headers
+    }, (proxyRes) => {
+      // Copy headers from backend response
+      const responseHeaders = { ...proxyRes.headers };
+      res.writeHead(proxyRes.statusCode, responseHeaders);
+      proxyRes.pipe(res);
+    });
+
+    proxyReq.on('error', (err) => {
+      console.error('❌ Proxy error:', err);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Backend server unavailable' }));
+    });
+
+    // Handle request body if present
+    if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
+      req.pipe(proxyReq);
+    } else {
+      proxyReq.end();
+    }
+    return;
   }
 
   const extname = String(path.extname(filePath)).toLowerCase();
@@ -62,4 +92,5 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
   console.log(`🚀 Frontend server running on http://localhost:${PORT}`);
   console.log(`📱 Open your browser and navigate to the URL above`);
+  console.log(`🔗 API requests will be proxied to http://localhost:3000`);
 });
