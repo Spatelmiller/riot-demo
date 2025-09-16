@@ -26,13 +26,14 @@ app.use(express.json());
 
 //middleware for req and responses
 app.use((req, res, next) => {
-  console.log(`\n🔍 ${req.method} ${req.path}`);
-  console.log('📥 Query:', req.query);
-  console.log('📥 Body:', req.body);
+  const timestamp = new Date().toISOString();
+  console.log(`\n[${timestamp}] 🔍 ${req.method} ${req.path}`);
+  console.log(`[${timestamp}] 📥 Query:`, req.query);
+  console.log(`[${timestamp}] 📥 Body:`, req.body);
   
   const originalSend = res.json;
   res.json = function(data) {
-    console.log('📤 Response:', JSON.stringify(data, null, 2));
+    console.log(`[${timestamp}] 📤 Response:`, JSON.stringify(data, null, 2));
     return originalSend.call(this, data);
   };
   
