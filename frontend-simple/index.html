@@ -281,223 +281,256 @@
     </div>
 
     <script>
-        // Form handling
-        const searchForm = document.getElementById('searchForm');
-        const loadingState = document.getElementById('loadingState');
-        const errorState = document.getElementById('errorState');
-        const playerCard = document.getElementById('playerCard');
-        const submitBtn = document.getElementById('submitBtn');
-        const riotIdError = document.getElementById('riotIdError');
-        const errorMessage = document.getElementById('errorMessage');
-
-        let dataDragonVersion = '14.18.1'; 
-
-        // Function to get the latest Data Dragon version
-        async function getDataDragonVersion() {
-            try {
-                const response = await fetch('https://ddragon.leagueoflegends.com/api/versions.json');
-                const versions = await response.json();
-                dataDragonVersion = versions[0]; // Get the latest version
-                console.log('✅ Using Data Dragon version:', dataDragonVersion);
-            } catch (error) {
-                console.log('⚠️ Failed to fetch Data Dragon version, using fallback:', dataDragonVersion);
-            }
-        }
-
-        // Function to load profile icon with retry mechanism
-        function loadProfileIcon(profileIconId, retryCount = 0) {
-            const profileIconImg = document.getElementById('profileIconImg');
-            const profileIconLoading = document.getElementById('profileIconLoading');
-            const profileIconIdText = document.getElementById('profileIconId');
-            
-            console.log('🔍 loadProfileIcon called with:', { profileIconId, retryCount, dataDragonVersion });
-            
-            if (!profileIconId) {
-                console.log('❌ No profile icon ID provided');
-                profileIconIdText.textContent = 'N/A';
-                return;
+        class PlayerLookupApp {
+            constructor() {
+                this.elements = this.initializeElements();
+                this.dataDragonVersion = '14.18.1';
+                this.init();
             }
 
-            profileIconLoading.style.display = 'flex';
-            profileIconImg.style.display = 'none';
-            
-            const versions = [dataDragonVersion, '15.18.1', '14.18.1', '14.17.1', '14.16.1'];
-            const versionToTry = versions[retryCount] || versions[versions.length - 1];
-            
-            const iconUrl = `https://ddragon.leagueoflegends.com/cdn/${versionToTry}/img/profileicon/${profileIconId}.png`;
-            console.log(`🖼️ Loading profile icon: ${iconUrl}`);
-            console.log(`🔄 Attempt ${retryCount + 1}/${versions.length} with version: ${versionToTry}`);
-            
-            profileIconImg.src = '';
-            profileIconImg.src = iconUrl;
-            
-            profileIconImg.onload = function() {
-                console.log('✅ Profile icon loaded successfully:', iconUrl);
-                profileIconLoading.style.display = 'none';
-                profileIconImg.style.display = 'block';
-                profileIconIdText.textContent = `#${profileIconId}`;
-            };
-            
-            profileIconImg.onerror = function(event) {
-                console.log(`❌ Failed to load icon with version ${versionToTry}:`, event);
-                console.log(`🔄 Retry count: ${retryCount}, Max retries: ${versions.length - 1}`);
-                
-                if (retryCount < versions.length - 1) {
-                    console.log(`⚠️ Trying next version...`);
-                    setTimeout(() => loadProfileIcon(profileIconId, retryCount + 1), 500);
-                } else {
-                    console.log('❌ All profile icon versions failed, showing ID only');
-                    profileIconLoading.style.display = 'none';
-                    profileIconImg.style.display = 'none';
-                    profileIconIdText.textContent = `#${profileIconId}`;
+            initializeElements() {
+                return {
+                    searchForm: document.getElementById('searchForm'),
+                    loadingState: document.getElementById('loadingState'),
+                    errorState: document.getElementById('errorState'),
+                    playerCard: document.getElementById('playerCard'),
+                    submitBtn: document.getElementById('submitBtn'),
+                    riotIdInput: document.getElementById('riotId'),
+                    regionSelect: document.getElementById('region'),
+                    riotIdError: document.getElementById('riotIdError'),
+                    errorMessage: document.getElementById('errorMessage')
+                };
+            }
+
+            init() {
+                this.setupEventListeners();
+                this.getDataDragonVersion();
+            }
+
+            setupEventListeners() {
+                this.elements.searchForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.handleSearch();
+                });
+
+                this.elements.riotIdInput.addEventListener('input', () => {
+                    this.clearError();
+                });
+            }
+
+            async getDataDragonVersion() {
+                try {
+                    const response = await fetch('https://ddragon.leagueoflegends.com/api/versions.json');
+                    const versions = await response.json();
+                    this.dataDragonVersion = versions[0];
+                    console.log('✅ Using Data Dragon version:', this.dataDragonVersion);
+                } catch (error) {
+                    console.log('⚠️ Failed to fetch Data Dragon version, using fallback:', this.dataDragonVersion);
                 }
-            };
-        }
-
-        getDataDragonVersion();
-
-
-        searchForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const riotId = document.getElementById('riotId').value.trim();
-            const region = document.getElementById('region').value;
-            
-            hideAllStates();
-            clearErrors();
-            
-            if (!riotId) {
-                showError('riotId', 'Riot ID is required');
-                return;
             }
-            
-            if (!riotId.includes('#')) {
-                showError('riotId', 'Riot ID must include # (e.g., PlayerName#1234)');
-                return;
-            }
-            
-            showLoading();
-            
-            const loadingTimeout = setTimeout(() => {
-                console.log('⏰ Loading timeout - hiding spinner');
-                loadingState.classList.add('hidden');
-                showErrorState('Request timed out. Please try again.');
-            }, 10000); // 10 second timeout
-            
-            try {
-                const response = await fetch(`http://localhost:3000/api/account?riotId=${encodeURIComponent(riotId)}&region=${region}`);
-                const data = await response.json();
+
+            async handleSearch() {
+                const riotId = this.elements.riotIdInput.value.trim();
+                const region = this.elements.regionSelect.value;
                 
-                if (!response.ok) {
-                    throw new Error(data.message || 'Failed to fetch player data');
+                this.clearError();
+                this.clearPlayerData();
+                this.elements.playerCard.classList.add('hidden');
+                
+                if (!this.validateInput(riotId)) {
+                    return;
+                }
+
+                this.showLoading();
+
+                try {
+                    const response = await fetch(`http://localhost:3000/api/account?riotId=${encodeURIComponent(riotId)}&region=${region}`);
+                    const data = await response.json();
+                    
+                    if (!response.ok) {
+                        throw new Error(data.message || 'Failed to fetch player data');
+                    }
+                    
+                    this.showPlayerData(data.data);
+                    
+                } catch (error) {
+                    console.error('Search error:', error);
+                    this.showError(error.message);
+                } finally {
+                    this.hideLoading();
+                }
+            }
+
+            validateInput(riotId) {
+                if (!riotId) {
+                    this.showFieldError('Riot ID is required');
+                    return false;
                 }
                 
-                // Show player data
-                clearTimeout(loadingTimeout); // Clear timeout on success
-                showPlayerData(data.data);
+                if (!riotId.includes('#')) {
+                    this.showFieldError('Riot ID must include # (e.g., PlayerName#1234)');
+                    return false;
+                }
                 
-            } catch (error) {
-                clearTimeout(loadingTimeout); // Clear timeout on error
-                showErrorState(error.message);
+                return true;
             }
-        });
-        
-        function hideAllStates() {
-            loadingState.classList.add('hidden');
-            errorState.classList.add('hidden');
-            playerCard.classList.add('hidden');
-            clearRankedStats(); // Clear ranked stats when hiding all states
-        }
-        
-        function showLoading() {
-            loadingState.classList.remove('hidden');
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Searching...';
-        }
-        
-        function showErrorState(message) {
-            loadingState.classList.add('hidden'); // Hide loading spinner
-            errorState.classList.remove('hidden');
-            errorMessage.textContent = message;
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Search Player';
-        }
-        
-        function clearRankedStats() {
-            document.getElementById('soloDuoCard').classList.add('hidden');
-            document.getElementById('flexCard').classList.add('hidden');
-            document.getElementById('noRankedStats').classList.add('hidden');
-            document.getElementById('rankedStats').classList.add('hidden');
-        }
 
-        function showPlayerData(data) {
-            clearRankedStats();
-            
-            // Basic player info
-            document.getElementById('playerName').innerHTML = `${data.gameName}<span class="text-riot-gold">#${data.tagLine}</span>`;
-            document.getElementById('playerPuuid').textContent = data.puuid;
-            document.getElementById('playerRiotId').innerHTML = `${data.gameName}<span class="text-riot-gold">#${data.tagLine}</span>`;
-            
-            // Profile information
-            if (data.summonerInfo) {
-                console.log('📊 Summoner info received:', data.summonerInfo);
-                document.getElementById('summonerLevel').textContent = data.summonerInfo.summonerLevel;
-                
-                console.log('🖼️ Profile icon ID:', data.summonerInfo.profileIconId);
-                loadProfileIcon(data.summonerInfo.profileIconId);
-                
-                document.getElementById('lastUpdated').textContent = new Date(data.summonerInfo.revisionDate).toLocaleDateString();
-                document.getElementById('profileInfo').classList.remove('hidden');
+            showLoading() {
+                this.elements.loadingState.classList.remove('hidden');
+                this.elements.submitBtn.disabled = true;
+                this.elements.submitBtn.textContent = 'Searching...';
             }
-            
-            // Ranked statistics
-            if (data.rankedStats) {
+
+            hideLoading() {
+                this.elements.loadingState.classList.add('hidden');
+                this.elements.submitBtn.disabled = false;
+                this.elements.submitBtn.textContent = 'Search Player';
+            }
+
+            showError(message) {
+                this.elements.errorState.classList.remove('hidden');
+                this.elements.errorMessage.textContent = message;
+            }
+
+            showFieldError(message) {
+                this.elements.riotIdError.textContent = message;
+                this.elements.riotIdError.classList.remove('hidden');
+            }
+
+            clearError() {
+                this.elements.riotIdError.classList.add('hidden');
+                this.elements.errorState.classList.add('hidden');
+            }
+
+            clearPlayerData() {
+                // Hide all sections
+                this.elements.playerCard.querySelector('#profileInfo').classList.add('hidden');
+                this.elements.playerCard.querySelector('#rankedStats').classList.add('hidden');
+                this.elements.playerCard.querySelector('#soloDuoCard').classList.add('hidden');
+                this.elements.playerCard.querySelector('#flexCard').classList.add('hidden');
+                this.elements.playerCard.querySelector('#noRankedStats').classList.add('hidden');
+                
+                // Clear profile icon
+                const img = this.elements.playerCard.querySelector('#profileIconImg');
+                const loading = this.elements.playerCard.querySelector('#profileIconLoading');
+                const idText = this.elements.playerCard.querySelector('#profileIconId');
+                
+                img.src = '';
+                img.style.display = 'none';
+                loading.style.display = 'none';
+                idText.textContent = '';
+            }
+
+            showPlayerData(data) {
+                // Clear previous data first
+                this.clearPlayerData();
+                
+                this.elements.playerCard.querySelector('#playerName').innerHTML = 
+                    `${data.gameName}<span class="text-riot-gold">#${data.tagLine}</span>`;
+                this.elements.playerCard.querySelector('#playerPuuid').textContent = data.puuid;
+                this.elements.playerCard.querySelector('#playerRiotId').innerHTML = 
+                    `${data.gameName}<span class="text-riot-gold">#${data.tagLine}</span>`;
+                
+                // Profile information
+                if (data.summonerInfo) {
+                    this.elements.playerCard.querySelector('#summonerLevel').textContent = data.summonerInfo.summonerLevel;
+                    this.loadProfileIcon(data.summonerInfo.profileIconId);
+                    this.elements.playerCard.querySelector('#lastUpdated').textContent = 
+                        new Date(data.summonerInfo.revisionDate).toLocaleDateString();
+                    this.elements.playerCard.querySelector('#profileInfo').classList.remove('hidden');
+                }
+                
+                // Ranked statistics
+                if (data.rankedStats) {
+                    this.renderRankedStats(data.rankedStats);
+                    this.elements.playerCard.querySelector('#rankedStats').classList.remove('hidden');
+                }
+                
+                this.elements.playerCard.classList.remove('hidden');
+            }
+
+            renderRankedStats(rankedStats) {
+                // hide all ranked stat cards
+                this.elements.playerCard.querySelector('#soloDuoCard').classList.add('hidden');
+                this.elements.playerCard.querySelector('#flexCard').classList.add('hidden');
+                this.elements.playerCard.querySelector('#noRankedStats').classList.add('hidden');
+                
                 let hasAnyRankedStats = false;
                 
-                // Solo/Duo
-                if (data.rankedStats.soloDuo) {
-                    const soloDuo = data.rankedStats.soloDuo;
-                    document.getElementById('soloDuoRank').textContent = `${soloDuo.tier} ${soloDuo.rank}`;
-                    document.getElementById('soloDuoLP').textContent = soloDuo.leaguePoints;
-                    document.getElementById('soloDuoWinRate').textContent = `${soloDuo.winRate}%`;
-                    document.getElementById('soloDuoWins').textContent = soloDuo.wins;
-                    document.getElementById('soloDuoLosses').textContent = soloDuo.losses;
-                    document.getElementById('soloDuoCard').classList.remove('hidden');
+                if (rankedStats.soloDuo) {
+                    const soloDuo = rankedStats.soloDuo;
+                    this.elements.playerCard.querySelector('#soloDuoRank').textContent = `${soloDuo.tier} ${soloDuo.rank}`;
+                    this.elements.playerCard.querySelector('#soloDuoLP').textContent = soloDuo.leaguePoints;
+                    this.elements.playerCard.querySelector('#soloDuoWinRate').textContent = `${soloDuo.winRate}%`;
+                    this.elements.playerCard.querySelector('#soloDuoWins').textContent = soloDuo.wins;
+                    this.elements.playerCard.querySelector('#soloDuoLosses').textContent = soloDuo.losses;
+                    this.elements.playerCard.querySelector('#soloDuoCard').classList.remove('hidden');
                     hasAnyRankedStats = true;
                 }
                 
-                if (data.rankedStats.flex) {
-                    const flex = data.rankedStats.flex;
-                    document.getElementById('flexRank').textContent = `${flex.tier} ${flex.rank}`;
-                    document.getElementById('flexLP').textContent = flex.leaguePoints;
-                    document.getElementById('flexWinRate').textContent = `${flex.winRate}%`;
-                    document.getElementById('flexWins').textContent = flex.wins;
-                    document.getElementById('flexLosses').textContent = flex.losses;
-                    document.getElementById('flexCard').classList.remove('hidden');
+                if (rankedStats.flex) {
+                    const flex = rankedStats.flex;
+                    this.elements.playerCard.querySelector('#flexRank').textContent = `${flex.tier} ${flex.rank}`;
+                    this.elements.playerCard.querySelector('#flexLP').textContent = flex.leaguePoints;
+                    this.elements.playerCard.querySelector('#flexWinRate').textContent = `${flex.winRate}%`;
+                    this.elements.playerCard.querySelector('#flexWins').textContent = flex.wins;
+                    this.elements.playerCard.querySelector('#flexLosses').textContent = flex.losses;
+                    this.elements.playerCard.querySelector('#flexCard').classList.remove('hidden');
                     hasAnyRankedStats = true;
                 }
-                
-                document.getElementById('rankedStats').classList.remove('hidden');
                 
                 if (!hasAnyRankedStats) {
-                    document.getElementById('noRankedStats').classList.remove('hidden');
+                    this.elements.playerCard.querySelector('#noRankedStats').classList.remove('hidden');
                 }
             }
-            
-            playerCard.classList.remove('hidden');
-            loadingState.classList.add('hidden'); // Hide loading spinner
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Search Player';
+
+            loadProfileIcon(profileIconId) {
+                if (!profileIconId) {
+                    this.elements.playerCard.querySelector('#profileIconId').textContent = 'N/A';
+                    return;
+                }
+
+                const img = this.elements.playerCard.querySelector('#profileIconImg');
+                const loading = this.elements.playerCard.querySelector('#profileIconLoading');
+                const idText = this.elements.playerCard.querySelector('#profileIconId');
+
+                loading.style.display = 'flex';
+                img.style.display = 'none';
+                
+                // Try multiple versions for better reliability
+                const versions = [this.dataDragonVersion, '15.18.1', '14.18.1', '14.17.1', '14.16.1'];
+                this.tryLoadIcon(img, loading, idText, profileIconId, versions, 0);
+            }
+
+            tryLoadIcon(img, loading, idText, profileIconId, versions, retryCount) {
+                const versionToTry = versions[retryCount] || versions[versions.length - 1];
+                const iconUrl = `https://ddragon.leagueoflegends.com/cdn/${versionToTry}/img/profileicon/${profileIconId}.png`;
+                
+                img.src = iconUrl;
+                
+                img.onload = () => {
+                    loading.style.display = 'none';
+                    img.style.display = 'block';
+                    idText.textContent = `#${profileIconId}`;
+                };
+                
+                img.onerror = () => {
+                    if (retryCount < versions.length - 1) {
+                        setTimeout(() => {
+                            this.tryLoadIcon(img, loading, idText, profileIconId, versions, retryCount + 1);
+                        }, 500);
+                    } else {
+                        loading.style.display = 'none';
+                        img.style.display = 'none';
+                        idText.textContent = `#${profileIconId}`;
+                    }
+                };
+            }
         }
-        
-        function showError(field, message) {
-            riotIdError.textContent = message;
-            riotIdError.classList.remove('hidden');
-        }
-        
-        function clearErrors() {
-            riotIdError.classList.add('hidden');
-        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            new PlayerLookupApp();
+        });
     </script>
 </body>
 </html>
