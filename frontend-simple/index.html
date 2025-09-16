@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LoL Player Lookup</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'riot-blue': '#0F1419',
+                        'riot-gold': '#C89B3C',
+                        'riot-silver': '#A09B8C',
+                        'riot-bronze': '#8B4513',
+                        'riot-iron': '#5B5B5B',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', system-ui, sans-serif; }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-riot-blue via-slate-900 to-riot-blue">
+    <div class="container mx-auto px-4 py-8">
+        <div class="text-center mb-12">
+            <h1 class="text-4xl font-bold text-white mb-4">
+                League of Legends
+                <span class="text-riot-gold"> Player Lookup</span>
+            </h1>
+            <p class="text-gray-300 text-lg">
+                Search for any player by their Riot ID and region
+            </p>
+        </div>
+
+        <div class="max-w-2xl mx-auto mb-8">
+            <form id="searchForm" class="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700/50">
+                <div class="space-y-6">
+                    <!-- Riot ID Input -->
+                    <div>
+                        <label for="riotId" class="block text-sm font-medium text-gray-300 mb-2">
+                            Riot ID
+                        </label>
+                        <div class="relative">
+                            <input
+                                type="text"
+                                id="riotId"
+                                placeholder="PlayerName#1234"
+                                class="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-riot-gold focus:border-transparent transition-all"
+                                required
+                            />
+                        </div>
+                        <div id="riotIdError" class="mt-1 text-sm text-red-400 hidden"></div>
+                    </div>
+
+                    <!-- Region Selection -->
+                    <div>
+                        <label for="region" class="block text-sm font-medium text-gray-300 mb-2">
+                            Region
+                        </label>
+                        <select
+                            id="region"
+                            class="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-riot-gold focus:border-transparent transition-all"
+                        >
+                            <option value="americas" class="bg-slate-700">Americas</option>
+                            <option value="europe" class="bg-slate-700">Europe</option>
+                            <option value="asia" class="bg-slate-700">Asia</option>
+                        </select>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button
+                        type="submit"
+                        id="submitBtn"
+                        class="w-full bg-gradient-to-r from-riot-gold to-yellow-600 hover:from-yellow-500 hover:to-riot-gold text-black font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105"
+                    >
+                        Search Player
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="flex justify-center hidden">
+            <div class="flex flex-col items-center space-y-4">
+                <div class="relative">
+                    <div class="w-12 h-12 border-4 border-riot-gold/20 rounded-full animate-spin"></div>
+                    <div class="absolute top-0 left-0 w-12 h-12 border-4 border-transparent border-t-riot-gold rounded-full animate-spin"></div>
+                </div>
+                <p class="text-gray-300 text-sm">Searching for player...</p>
+            </div>
+        </div>
+
+        <!-- Error State -->
+        <div id="errorState" class="max-w-2xl mx-auto mb-8 hidden">
+            <div class="bg-red-900/20 border border-red-500/50 rounded-lg p-4">
+                <div class="flex items-center">
+                    <div class="text-red-400 mr-3">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-red-400 font-medium">Error</h3>
+                        <p id="errorMessage" class="text-red-300 text-sm mt-1"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Player Data -->
+        <div id="playerCard" class="max-w-4xl mx-auto hidden">
+            <div class="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700/50 overflow-hidden">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-riot-gold/20 to-yellow-600/20 px-6 py-4 border-b border-slate-700/50">
+                    <h2 id="playerName" class="text-2xl font-bold text-white">
+                        <!-- Player name will be inserted here -->
+                    </h2>
+                    <p class="text-gray-300 text-sm mt-1">Player Information</p>
+                </div>
+
+                <!-- Content -->
+                <div class="p-6">
+                    <!-- Basic Info -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- PUUID -->
+                        <div class="space-y-2">
+                            <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wide">PUUID</h3>
+                            <div class="bg-slate-700/30 rounded-lg p-3 border border-slate-600/50">
+                                <code id="playerPuuid" class="text-riot-gold text-sm break-all font-mono">
+                                    <!-- PUUID will be inserted here -->
+                                </code>
+                            </div>
+                        </div>
+
+                        <!-- Game Name & Tag -->
+                        <div class="space-y-2">
+                            <h3 class="text-sm font-medium text-gray-400 uppercase tracking-wide">Riot ID</h3>
+                            <div class="bg-slate-700/30 rounded-lg p-3 border border-slate-600/50">
+                                <div id="playerRiotId" class="text-white font-medium">
+                                    <!-- Riot ID will be inserted here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Profile Information -->
+                    <div id="profileInfo" class="mt-8 pt-6 border-t border-slate-700/50 hidden">
+                        <h3 class="text-lg font-semibold text-white mb-4">Profile Information</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="bg-slate-700/30 rounded-lg p-4 border border-slate-600/50">
+                                <div class="text-sm text-gray-400 mb-1">Summoner Level</div>
+                                <div id="summonerLevel" class="text-2xl font-bold text-riot-gold">
+                                    <!-- Level will be inserted here -->
+                                </div>
+                            </div>
+                            <div class="bg-slate-700/30 rounded-lg p-4 border border-slate-600/50">
+                                <div class="text-sm text-gray-400 mb-1">Profile Icon</div>
+                                <div class="flex items-center space-x-3">
+                                    <div class="relative">
+                                        <img id="profileIconImg" 
+                                             src="" 
+                                             alt="Profile Icon" 
+                                             class="w-12 h-12 rounded-lg border-2 border-riot-gold/30"
+                                             style="display: none;">
+                                        <div id="profileIconLoading" 
+                                             class="w-12 h-12 rounded-lg border-2 border-riot-gold/30 bg-slate-600 flex items-center justify-center"
+                                             style="display: none;">
+                                            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-riot-gold"></div>
+                                        </div>
+                                    </div>
+                                    <div id="profileIconId" class="text-riot-gold font-medium">
+                                        <!-- Icon ID will be inserted here -->
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-slate-700/30 rounded-lg p-4 border border-slate-600/50">
+                                <div class="text-sm text-gray-400 mb-1">Last Updated</div>
+                                <div id="lastUpdated" class="text-sm text-white">
+                                    <!-- Date will be inserted here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ranked Statistics -->
+                    <div id="rankedStats" class="mt-8 pt-6 border-t border-slate-700/50 hidden">
+                        <h3 class="text-lg font-semibold text-white mb-4">Ranked Statistics</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Solo/Duo -->
+                            <div id="soloDuoCard" class="bg-slate-700/30 rounded-lg p-4 border border-slate-600/50 hidden">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h4 class="font-semibold text-white">Solo/Duo</h4>
+                                    <span id="soloDuoRank" class="text-riot-gold font-bold">
+                                        <!-- Rank will be inserted here -->
+                                    </span>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <div class="text-gray-400">LP</div>
+                                        <div id="soloDuoLP" class="text-white font-medium">
+                                            <!-- LP will be inserted here -->
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="text-gray-400">Win Rate</div>
+                                        <div id="soloDuoWinRate" class="text-white font-medium">
+                                            <!-- Win rate will be inserted here -->
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="text-gray-400">Wins</div>
+                                        <div id="soloDuoWins" class="text-green-400 font-medium">
+                                            <!-- Wins will be inserted here -->
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="text-gray-400">Losses</div>
+                                        <div id="soloDuoLosses" class="text-red-400 font-medium">
+                                            <!-- Losses will be inserted here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Flex -->
+                            <div id="flexCard" class="bg-slate-700/30 rounded-lg p-4 border border-slate-600/50 hidden">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h4 class="font-semibold text-white">Flex 5v5</h4>
+                                    <span id="flexRank" class="text-riot-gold font-bold">
+                                        <!-- Rank will be inserted here -->
+                                    </span>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <div class="text-gray-400">LP</div>
+                                        <div id="flexLP" class="text-white font-medium">
+                                            <!-- LP will be inserted here -->
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="text-gray-400">Win Rate</div>
+                                        <div id="flexWinRate" class="text-white font-medium">
+                                            <!-- Win rate will be inserted here -->
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="text-gray-400">Wins</div>
+                                        <div id="flexWins" class="text-green-400 font-medium">
+                                            <!-- Wins will be inserted here -->
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="text-gray-400">Losses</div>
+                                        <div id="flexLosses" class="text-red-400 font-medium">
+                                            <!-- Losses will be inserted here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- No Ranked Stats Message -->
+                        <div id="noRankedStats" class="bg-slate-700/30 rounded-lg p-6 border border-slate-600/50 text-center hidden">
+                            <div class="text-gray-400 mb-2">
+                                <svg class="w-12 h-12 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                            <h4 class="text-lg font-semibold text-white mb-2">No Ranked Stats</h4>
+                            <p class="text-gray-400">This player has no ranked statistics for the current season.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Form handling
+        const searchForm = document.getElementById('searchForm');
+        const loadingState = document.getElementById('loadingState');
+        const errorState = document.getElementById('errorState');
+        const playerCard = document.getElementById('playerCard');
+        const submitBtn = document.getElementById('submitBtn');
+        const riotIdError = document.getElementById('riotIdError');
+        const errorMessage = document.getElementById('errorMessage');
+
+        let dataDragonVersion = '14.18.1'; 
+
+        // Function to get the latest Data Dragon version
+        async function getDataDragonVersion() {
+            try {
+                const response = await fetch('https://ddragon.leagueoflegends.com/api/versions.json');
+                const versions = await response.json();
+                dataDragonVersion = versions[0]; // Get the latest version
+                console.log('✅ Using Data Dragon version:', dataDragonVersion);
+            } catch (error) {
+                console.log('⚠️ Failed to fetch Data Dragon version, using fallback:', dataDragonVersion);
+            }
+        }
+
+        // Function to load profile icon with retry mechanism
+        function loadProfileIcon(profileIconId, retryCount = 0) {
+            const profileIconImg = document.getElementById('profileIconImg');
+            const profileIconLoading = document.getElementById('profileIconLoading');
+            const profileIconIdText = document.getElementById('profileIconId');
+            
+            console.log('🔍 loadProfileIcon called with:', { profileIconId, retryCount, dataDragonVersion });
+            
+            if (!profileIconId) {
+                console.log('❌ No profile icon ID provided');
+                profileIconIdText.textContent = 'N/A';
+                return;
+            }
+
+            profileIconLoading.style.display = 'flex';
+            profileIconImg.style.display = 'none';
+            
+            const versions = [dataDragonVersion, '15.18.1', '14.18.1', '14.17.1', '14.16.1'];
+            const versionToTry = versions[retryCount] || versions[versions.length - 1];
+            
+            const iconUrl = `https://ddragon.leagueoflegends.com/cdn/${versionToTry}/img/profileicon/${profileIconId}.png`;
+            console.log(`🖼️ Loading profile icon: ${iconUrl}`);
+            console.log(`🔄 Attempt ${retryCount + 1}/${versions.length} with version: ${versionToTry}`);
+            
+            profileIconImg.src = '';
+            profileIconImg.src = iconUrl;
+            
+            profileIconImg.onload = function() {
+                console.log('✅ Profile icon loaded successfully:', iconUrl);
+                profileIconLoading.style.display = 'none';
+                profileIconImg.style.display = 'block';
+                profileIconIdText.textContent = `#${profileIconId}`;
+            };
+            
+            profileIconImg.onerror = function(event) {
+                console.log(`❌ Failed to load icon with version ${versionToTry}:`, event);
+                console.log(`🔄 Retry count: ${retryCount}, Max retries: ${versions.length - 1}`);
+                
+                if (retryCount < versions.length - 1) {
+                    console.log(`⚠️ Trying next version...`);
+                    setTimeout(() => loadProfileIcon(profileIconId, retryCount + 1), 500);
+                } else {
+                    console.log('❌ All profile icon versions failed, showing ID only');
+                    profileIconLoading.style.display = 'none';
+                    profileIconImg.style.display = 'none';
+                    profileIconIdText.textContent = `#${profileIconId}`;
+                }
+            };
+        }
+
+        getDataDragonVersion();
+
+
+        searchForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const riotId = document.getElementById('riotId').value.trim();
+            const region = document.getElementById('region').value;
+            
+            hideAllStates();
+            clearErrors();
+            
+            if (!riotId) {
+                showError('riotId', 'Riot ID is required');
+                return;
+            }
+            
+            if (!riotId.includes('#')) {
+                showError('riotId', 'Riot ID must include # (e.g., PlayerName#1234)');
+                return;
+            }
+            
+            showLoading();
+            
+            const loadingTimeout = setTimeout(() => {
+                console.log('⏰ Loading timeout - hiding spinner');
+                loadingState.classList.add('hidden');
+                showErrorState('Request timed out. Please try again.');
+            }, 10000); // 10 second timeout
+            
+            try {
+                const response = await fetch(`http://localhost:3000/api/account?riotId=${encodeURIComponent(riotId)}&region=${region}`);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.message || 'Failed to fetch player data');
+                }
+                
+                // Show player data
+                clearTimeout(loadingTimeout); // Clear timeout on success
+                showPlayerData(data.data);
+                
+            } catch (error) {
+                clearTimeout(loadingTimeout); // Clear timeout on error
+                showErrorState(error.message);
+            }
+        });
+        
+        function hideAllStates() {
+            loadingState.classList.add('hidden');
+            errorState.classList.add('hidden');
+            playerCard.classList.add('hidden');
+            clearRankedStats(); // Clear ranked stats when hiding all states
+        }
+        
+        function showLoading() {
+            loadingState.classList.remove('hidden');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Searching...';
+        }
+        
+        function showErrorState(message) {
+            loadingState.classList.add('hidden'); // Hide loading spinner
+            errorState.classList.remove('hidden');
+            errorMessage.textContent = message;
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Search Player';
+        }
+        
+        function clearRankedStats() {
+            document.getElementById('soloDuoCard').classList.add('hidden');
+            document.getElementById('flexCard').classList.add('hidden');
+            document.getElementById('noRankedStats').classList.add('hidden');
+            document.getElementById('rankedStats').classList.add('hidden');
+        }
+
+        function showPlayerData(data) {
+            clearRankedStats();
+            
+            // Basic player info
+            document.getElementById('playerName').innerHTML = `${data.gameName}<span class="text-riot-gold">#${data.tagLine}</span>`;
+            document.getElementById('playerPuuid').textContent = data.puuid;
+            document.getElementById('playerRiotId').innerHTML = `${data.gameName}<span class="text-riot-gold">#${data.tagLine}</span>`;
+            
+            // Profile information
+            if (data.summonerInfo) {
+                console.log('📊 Summoner info received:', data.summonerInfo);
+                document.getElementById('summonerLevel').textContent = data.summonerInfo.summonerLevel;
+                
+                console.log('🖼️ Profile icon ID:', data.summonerInfo.profileIconId);
+                loadProfileIcon(data.summonerInfo.profileIconId);
+                
+                document.getElementById('lastUpdated').textContent = new Date(data.summonerInfo.revisionDate).toLocaleDateString();
+                document.getElementById('profileInfo').classList.remove('hidden');
+            }
+            
+            // Ranked statistics
+            if (data.rankedStats) {
+                let hasAnyRankedStats = false;
+                
+                // Solo/Duo
+                if (data.rankedStats.soloDuo) {
+                    const soloDuo = data.rankedStats.soloDuo;
+                    document.getElementById('soloDuoRank').textContent = `${soloDuo.tier} ${soloDuo.rank}`;
+                    document.getElementById('soloDuoLP').textContent = soloDuo.leaguePoints;
+                    document.getElementById('soloDuoWinRate').textContent = `${soloDuo.winRate}%`;
+                    document.getElementById('soloDuoWins').textContent = soloDuo.wins;
+                    document.getElementById('soloDuoLosses').textContent = soloDuo.losses;
+                    document.getElementById('soloDuoCard').classList.remove('hidden');
+                    hasAnyRankedStats = true;
+                }
+                
+                if (data.rankedStats.flex) {
+                    const flex = data.rankedStats.flex;
+                    document.getElementById('flexRank').textContent = `${flex.tier} ${flex.rank}`;
+                    document.getElementById('flexLP').textContent = flex.leaguePoints;
+                    document.getElementById('flexWinRate').textContent = `${flex.winRate}%`;
+                    document.getElementById('flexWins').textContent = flex.wins;
+                    document.getElementById('flexLosses').textContent = flex.losses;
+                    document.getElementById('flexCard').classList.remove('hidden');
+                    hasAnyRankedStats = true;
+                }
+                
+                document.getElementById('rankedStats').classList.remove('hidden');
+                
+                if (!hasAnyRankedStats) {
+                    document.getElementById('noRankedStats').classList.remove('hidden');
+                }
+            }
+            
+            playerCard.classList.remove('hidden');
+            loadingState.classList.add('hidden'); // Hide loading spinner
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Search Player';
+        }
+        
+        function showError(field, message) {
+            riotIdError.textContent = message;
+            riotIdError.classList.remove('hidden');
+        }
+        
+        function clearErrors() {
+            riotIdError.classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
