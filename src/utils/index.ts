@@ -5,5 +5,5 @@
  */
 
 export * from './riot-id-parser';
-export * from './platform-detector';
-export * from './formatters';
+export * from './platform-mapping';
+export * from './parallel-queries';

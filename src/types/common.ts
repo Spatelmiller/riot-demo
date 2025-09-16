@@ -1,7 +1,7 @@
 
 
-export type Platform = 'na1' | 'euw1' | 'eun1' | 'kr' | 'br1' | 'la1' | 'la2' | 'oc1' | 'tr1' | 'ru' | 'jp1';
-export type Region = 'americas' | 'europe' | 'asia' | 'sea';
+export type Platform = 'na1' | 'br1' | 'la1' | 'la2' | 'euw1' | 'eun1' | 'me1' | 'tr1' | 'ru' | 'jp1' | 'kr' | 'oc1' | 'sg2' | 'tw2' | 'vn2';
+export type Region = 'americas' | 'europe' | 'asia' 
 
 export interface RiotId {
   gameName: string;

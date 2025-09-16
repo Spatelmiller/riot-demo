@@ -8,14 +8,17 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { RiotClient } from '../api/riot-client.js';
 import { RiotIdParser } from '../utils/riot-id-parser.js';
-import { PlatformDetector } from '../utils/platform-detector.js';
+import { 
+  querySummonerAcrossPlatforms, 
+  queryLeagueEntriesAcrossPlatforms 
+} from '../utils/parallel-queries.js';
 import { handleApiError } from '../api/error-handler.js';
 import type { LeagueEntryDto } from '../types/league.js';
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env['PORT'] || 3000;
+const PORT = 3000;
 
 app.use(cors());
 app.use(express.json());
@@ -90,42 +93,43 @@ app.get('/api/account', async (req, res) => {
     const account = await riotClient.getAccountByRiotId(gameName, tagLine, region as string);
     console.log('📥 Account response:', JSON.stringify(account, null, 2));
 
-    //Determine platform 
-    const platform = PlatformDetector.getBestPlatform(riotId, region as any);
-    console.log('🎯 Using platform:', platform);
+    // Get Summoner info across all platforms in parallel
+    console.log('🔄 Querying summoner data across all platforms for region:', region);
+    const summonerResult = await querySummonerAcrossPlatforms(account.puuid, region as any, riotClient);
+    const summonerInfo = summonerResult.data;
+    console.log('📥 Summoner response from platform', summonerResult.platform, ':', JSON.stringify(summonerInfo, null, 2));
 
-    // Get Summoner info
-    const summonerInfo = await riotClient.getSummonerByPuuid(account.puuid, platform);
-    console.log('📥 Summoner response:', JSON.stringify(summonerInfo, null, 2));
-
-    // Get league entries (ranked stats) 
+    // Get league entries (ranked stats) across all platforms in parallel
     let leagueEntries: LeagueEntryDto[] = [];
     let soloDuo: LeagueEntryDto | null = null;
     let flex: LeagueEntryDto | null = null;
+    let leagueResult: any = null;
     
     try {
       const encryptedPUUID = summonerInfo.puuid;
-      console.log('🔍 Using encrypted PUUID for League-V4:', encryptedPUUID);
+      console.log('🔄 Querying league entries across all platforms for region:', region);
       
-      leagueEntries = await riotClient.getLeagueEntriesbyEncryptedPUUID(encryptedPUUID, platform) as LeagueEntryDto[];
-      console.log('📥 League entries response:', JSON.stringify(leagueEntries, null, 2));
+      leagueResult = await queryLeagueEntriesAcrossPlatforms(encryptedPUUID, region as any, riotClient);
+      leagueEntries = leagueResult.data;
+      console.log('📥 League entries response from platform', leagueResult.platform, ':', JSON.stringify(leagueEntries, null, 2));
+      console.log('🔍 League entries length:', leagueEntries.length);
 
       // Process league entries to separate Solo/Duo and Flex
       soloDuo = leagueEntries.find(entry => entry.queueType === 'RANKED_SOLO_5x5') || null;
       flex = leagueEntries.find(entry => entry.queueType === 'RANKED_FLEX_SR') || null;
+      console.log('🔍 Processed soloDuo:', soloDuo ? 'found' : 'null');
+      console.log('🔍 Processed flex:', flex ? 'found' : 'null');
     } catch (error: unknown) {
-      console.log('⚠️ League-V4 API not available (permission or other issue):', (error as Error).message);
+      console.log('⚠️ League-V4 API not available on any platform:', (error as Error).message);
     }
 
     return res.json({
       success: true,
       data: {
-        // Account info
         puuid: account.puuid,
         gameName: account.gameName,
         tagLine: account.tagLine,
-        
-        // Profile info
+
         summonerInfo: {
           id: summonerInfo.id || summonerInfo.puuid, // Use puuid as fallback for id
           accountId: summonerInfo.accountId || summonerInfo.puuid, // Use puuid as fallback
@@ -154,12 +158,18 @@ app.get('/api/account', async (req, res) => {
             losses: flex.losses,
             winRate: Math.round((flex.wins / (flex.wins + flex.losses)) * 100)
           } : null
+        },
+        
+        // Platform info
+        platform: {
+          summoner: summonerResult.platform,
+          league: leagueResult ? leagueResult.platform : 'none'
         }
       }
     });
 
   } catch (error) {
-    handleApiError(error, res);
+    return handleApiError(error, res);
   }
 });
 
@@ -207,12 +217,12 @@ app.get('/', (req, res) => {
     },
     examples: {
       account: {
-        url: '/api/account?riotId=Faker%235555',
-        description: 'Get account for Faker with tag 5555',
+        url: '/api/account?riotId=Samir%232468',
+        description: 'Get account for Samir with tag 2468',
         note: 'Use %23 instead of # in URLs due to URL fragment handling'
       },
       withRegion: {
-        url: '/api/account?riotId=Faker%235555&region=americas',
+        url: '/api/account?riotId=Samir%232468&region=americas',
         description: 'Get account with specific region'
       }
     }

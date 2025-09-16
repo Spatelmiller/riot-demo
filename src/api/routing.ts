@@ -22,9 +22,13 @@ export class ApiRouting {
       'eun1': 'europe',
       'tr1': 'europe',
       'ru': 'europe',
+      'me1': 'europe',
       'kr': 'asia',
       'jp1': 'asia',
-      'oc1': 'asia'
+      'oc1': 'asia',
+      'sg2': 'asia',
+      'tw2': 'asia',
+      'vn2': 'asia'
     };
 
     return platformToRegion[platform];
@@ -39,8 +43,7 @@ export class ApiRouting {
     const regionUrls: Record<Region, string> = {
       'americas': 'https://americas.api.riotgames.com',
       'europe': 'https://europe.api.riotgames.com',
-      'asia': 'https://asia.api.riotgames.com',
-      'sea': 'https://sea.api.riotgames.com'
+      'asia': 'https://asia.api.riotgames.com'
     };
 
     return regionUrls[region];
@@ -59,11 +62,15 @@ export class ApiRouting {
       'la2': 'https://la2.api.riotgames.com',
       'euw1': 'https://euw1.api.riotgames.com',
       'eun1': 'https://eun1.api.riotgames.com',
+      'me1': 'https://me1.api.riotgames.com',
       'tr1': 'https://tr1.api.riotgames.com',
       'ru': 'https://ru.api.riotgames.com',
       'kr': 'https://kr.api.riotgames.com',
       'jp1': 'https://jp1.api.riotgames.com',
-      'oc1': 'https://oc1.api.riotgames.com'
+      'oc1': 'https://oc1.api.riotgames.com',
+      'sg2': 'https://sg2.api.riotgames.com',
+      'tw2': 'https://tw2.api.riotgames.com',
+      'vn2': 'https://vn2.api.riotgames.com'
     };
 
     return platformUrls[platform];
