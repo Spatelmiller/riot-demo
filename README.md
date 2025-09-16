@@ -1,6 +1,6 @@
 # League of Legends Player Lookup
 
-A full-stack application for looking up League of Legends players using the Riot Games API. Features a secure backend API and a modern React frontend.
+A full-stack application for looking up League of Legends players using the Riot Games API. Features a secure backend API and a clean, modern frontend.
 
 ## 🚀 Features
 
@@ -10,12 +10,13 @@ A full-stack application for looking up League of Legends players using the Riot
 - **Error Handling**: Comprehensive error handling with proper HTTP status codes
 - **RESTful Design**: Clean API endpoints following REST conventions
 - **TypeScript**: Full type safety throughout the application
+- **Data Dragon Integration**: Backend proxy for profile icons with caching
 
 ### Frontend UI
-- **Modern Design**: Clean, responsive UI with Tailwind CSS (via CDN)
+- **Modern Design**: Clean, responsive UI with Tailwind CSS
 - **Real-time Search**: Instant player lookup with loading states
 - **Form Validation**: Client-side validation with helpful error messages
-- **Extensible Architecture**: Ready for profile info and ranked stats
+- **Player Information**: Complete player data including profile and ranked stats
 - **Mobile Responsive**: Works perfectly on all device sizes
 - **No Build Process**: Simple HTML/CSS/JS - works with any Node.js version
 
@@ -23,9 +24,12 @@ A full-stack application for looking up League of Legends players using the Riot
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   React UI      │    │   Express API   │    │   Riot API      │
-│   (Frontend)    │◄──►│   (Backend)     │◄──►│   (External)    │
-│   Port 5173     │    │   Port 3000     │    │   Port 443      │
+│   HTML Frontend │    │   Express API   │    │   Riot API      │
+│   (Port 5173)   │◄──►│   (Port 3000)   │◄──►│   (Port 443)    │
+│                 │    │                 │    │                 │
+│   - Search Form │    │   - Account API │    │   - Account API │
+│   - Player Card │    │   - Icon Proxy  │    │   - Summoner API│
+│   - Ranked Stats│    │   - Error Handle│    │   - League API  │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
@@ -36,12 +40,11 @@ A full-stack application for looking up League of Legends players using the Riot
 - **TypeScript** for type safety
 - **Axios** for HTTP requests
 - **CORS** for cross-origin requests
-- **dotenv** for environment variables
 
 ### Frontend
 - **Vanilla HTML/CSS/JavaScript** - no build process needed
 - **Tailwind CSS** via CDN for styling
-- **Modern ES6+ JavaScript** with async/await
+- **Modern ES6+ JavaScript** with class-based architecture
 - **Responsive design** with mobile-first approach
 
 ## 🚀 Quick Start
@@ -88,7 +91,7 @@ npm run frontend
 ## 📚 API Endpoints
 
 ### GET /api/account
-Get player account information by Riot ID.
+Get complete player information by Riot ID.
 
 **Query Parameters:**
 - `riotId` (required): Player's Riot ID (e.g., "PlayerName#1234")
@@ -96,7 +99,7 @@ Get player account information by Riot ID.
 
 **Example:**
 ```
-GET /api/account?riotId=Samir%232468&region=americas
+GET /api/account?riotId=Troublemaker%230525&region=americas
 ```
 
 **Response:**
@@ -105,40 +108,73 @@ GET /api/account?riotId=Samir%232468&region=americas
   "success": true,
   "data": {
     "puuid": "abc123...",
-    "gameName": "Samir",
-    "tagLine": "2468"
+    "gameName": "Troublemaker",
+    "tagLine": "0525",
+    "summonerInfo": {
+      "summonerLevel": 855,
+      "profileIconId": 6883,
+      "revisionDate": 1757997910111
+    },
+    "rankedStats": {
+      "soloDuo": {
+        "tier": "PLATINUM",
+        "rank": "I",
+        "leaguePoints": 10,
+        "wins": 44,
+        "losses": 47,
+        "winRate": 48
+      },
+      "flex": {
+        "tier": "EMERALD",
+        "rank": "IV",
+        "leaguePoints": 20,
+        "wins": 95,
+        "losses": 90,
+        "winRate": 51
+      }
+    }
   }
 }
+```
+
+### GET /api/icon/:iconId
+Get profile icon from Data Dragon with caching.
+
+**Example:**
+```
+GET /api/icon/6883
 ```
 
 ### GET /api/health
 Health check endpoint.
 
-### GET /api/debug
-Debug endpoint with instructions.
+## 🎨 Frontend Features
 
-## 🎨 UI Components
-
-### SearchForm
+### Search Form
 - Riot ID input with validation
 - Region selection dropdown
 - Real-time form validation
-- Loading states
+- Loading states and error handling
 
-### PlayerCard
-- Displays basic player information
-- Shows PUUID and Riot ID
-- Ready for profile and ranked stats extensions
-- Responsive design
+### Player Card
+- **Basic Information**: PUUID, Riot ID
+- **Profile Information**: Summoner level, profile icon, last updated
+- **Ranked Statistics**: Solo/Duo and Flex 5v5 ranks with LP, wins, losses, win rates
+- **Responsive Design**: Works on all screen sizes
 
+### UI States
+- **Loading**: Animated spinner during API calls
+- **Error**: Clear error messages with helpful feedback
+- **Success**: Complete player information display
+- **Empty States**: "No ranked stats" when appropriate
 
 ## 🔧 Development
 
 ### Backend Development
 ```bash
-npm run server:dev    # Start with hot reload
-npm run build         # Build TypeScript
-npm test             # Run tests
+npm run server:dev    
+npm run build         
+npm test             
 ```
 
 ### Frontend Development
@@ -156,34 +192,26 @@ riot-demo/
 │   ├── types/             # TypeScript types
 │   └── utils/             # Utility functions
 ├── frontend-simple/       # Simple HTML frontend
-│   ├── index.html         # Main HTML file
+│   ├── index.html         # Main HTML file with all functionality
 │   └── server.js          # Simple HTTP server
 ├── dist/                  # Compiled backend
 └── package.json
 ```
 
-## 🔮 Future Extensions
+## 🎯 Key Improvements
 
-The application is designed to easily add:
+### Frontend Architecture
+- **Class-based JavaScript**: Clean, maintainable code structure
+- **Proper State Management**: Consistent UI state handling
+- **Error Boundaries**: Comprehensive error handling and recovery
+- **Data Cleanup**: Proper cleanup between searches
+- **Profile Icon Loading**: Reliable icon loading with fallbacks
 
-### Profile Information
-- Summoner level
-- Profile icon
-- Last updated timestamp
-- Account creation date
-
-### Ranked Statistics
-- Solo/Duo rank and LP
-- Flex 5v5 rank and LP
-- Win/loss records
-- Win rates
-- Promotional series status
-
-### Additional Features
-- Match history
-- Champion statistics
-- Recent games
-- Leaderboards
+### Backend Enhancements
+- **Data Dragon Proxy**: Backend handles icon requests with caching
+- **Parallel Queries**: Efficient cross-platform data fetching
+- **Comprehensive Data**: Complete player information including ranked stats
+- **Error Handling**: Robust error handling with proper HTTP status codes
 
 ## 🛡️ Security
 
@@ -191,3 +219,22 @@ The application is designed to easily add:
 - **Input Validation**: Both client and server-side validation
 - **Error Handling**: Secure error messages without sensitive data
 - **CORS Configuration**: Proper cross-origin request handling
+- **Data Dragon Proxy**: No direct external API calls from frontend
+
+## 🚀 Performance
+
+- **Backend Icon Caching**: 24-hour cache headers for profile icons
+- **Parallel API Calls**: Efficient data fetching across platforms
+- **Optimized UI**: Smooth loading states and transitions
+- **No Build Process**: Instant development and deployment
+
+## 📱 Usage
+
+1. **Start the servers** using `npm run dev:all`
+2. **Open** http://localhost:5173 in your browser
+3. **Enter a Riot ID** (e.g., "Troublemaker#0525")
+4. **Select a region** (Americas, Europe, or Asia)
+5. **Click Search** to see complete player information
+6. **View ranked stats** for both Solo/Duo and Flex 5v5 queues
+
+The application provides a complete League of Legends player lookup experience with modern UI and robust backend functionality!
